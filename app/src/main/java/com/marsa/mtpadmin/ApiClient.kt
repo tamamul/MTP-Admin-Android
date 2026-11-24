@@ -221,6 +221,10 @@ object SessionManager {
             .apply()
     }
 
+    fun isLoggedIn(context: Context): Boolean {
+        return !token(context).isNullOrBlank()
+    }
+
     fun token(context: Context): String? {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(TOKEN, null)
