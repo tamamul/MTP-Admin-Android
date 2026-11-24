@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Refresh
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.marsa.mtpadmin.ApiClient
 import com.marsa.mtpadmin.ReportSummary
+import com.marsa.mtpadmin.ReportDetail
 import kotlinx.coroutines.launch
 
 @Composable
@@ -29,6 +31,32 @@ fun DashboardScreen(
     darkTheme: Boolean,
     onThemeChange: (Boolean) -> Unit,
     onLogout: () -> Unit
+) {
+    var selectedReportId by remember { mutableStateOf<Int?>(null) }
+
+    if (selectedReportId != null) {
+        ReportDetailScreen(
+            reportId = selectedReportId!!,
+            onBack = { selectedReportId = null }
+        )
+    } else {
+        DashboardContent(
+            name = name,
+            darkTheme = darkTheme,
+            onThemeChange = onThemeChange,
+            onLogout = onLogout,
+            onReportClick = { selectedReportId = it }
+        )
+    }
+}
+
+@Composable
+private fun DashboardContent(
+    name: String,
+    darkTheme: Boolean,
+    onThemeChange: (Boolean) -> Unit,
+    onLogout: () -> Unit,
+    onReportClick: (Int) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
@@ -74,10 +102,10 @@ fun DashboardScreen(
                 error = when (e) {
                     is retrofit2.HttpException ->
                         if (e.code() == 401 || e.code() == 403)
-                            "Sesi tidak valid atau akses administrator ditolak."
+                            "Sesi tidak valid atau akses ditolak."
                         else
                             "Server mengembalikan error ${e.code()}."
-                    else -> "Tidak dapat mengambil data. Periksa koneksi internet."
+                    else -> "Tidak dapat mengambil data. Periksa koneksi."
                 }
             } finally {
                 loading = false
@@ -123,12 +151,8 @@ fun DashboardScreen(
                 )
             }
 
-            IconButton(onClick = onLogout) {
-                Text(
-                    "Keluar",
-                    color = colors.error,
-                    fontSize = 12.sp
-                )
+            TextButton(onClick = onLogout) {
+                Text("Keluar", color = colors.error)
             }
         }
 
@@ -245,17 +269,12 @@ fun DashboardScreen(
                 onClick = { loadReports() },
                 enabled = !loading
             ) {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = "Muat ulang"
-                )
+                Icon(Icons.Default.Refresh, contentDescription = "Muat ulang")
             }
         }
 
         if (loading) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth()
-            )
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
         if (error.isNotBlank()) {
@@ -274,10 +293,7 @@ fun DashboardScreen(
                     .weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Belum ada laporan.",
-                    color = colors.onBackground.copy(alpha = 0.6f)
-                )
+                Text("Belum ada laporan.")
             }
         } else {
             LazyColumn(
@@ -286,7 +302,10 @@ fun DashboardScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(reports, key = { it.id }) { report ->
-                    ReportCard(report)
+                    ReportCard(
+                        report = report,
+                        onClick = { onReportClick(report.id) }
+                    )
                 }
             }
         }
@@ -294,11 +313,16 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun ReportCard(report: ReportSummary) {
+private fun ReportCard(
+    report: ReportSummary,
+    onClick: () -> Unit
+) {
     val colors = MaterialTheme.colorScheme
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = colors.surface
@@ -317,21 +341,7 @@ private fun ReportCard(report: ReportSummary) {
                     fontSize = 13.sp
                 )
 
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = statusColor(report.status).copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        statusLabel(report.status),
-                        color = statusColor(report.status),
-                        modifier = Modifier.padding(
-                            horizontal = 10.dp,
-                            vertical = 5.dp
-                        ),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                StatusBadge(report.status)
             }
 
             Spacer(Modifier.height(10.dp))
@@ -363,14 +373,297 @@ private fun ReportCard(report: ReportSummary) {
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
-
                 Text(
                     report.created_at?.take(10) ?: "",
                     color = colors.onSurface.copy(alpha = 0.55f),
                     fontSize = 11.sp
                 )
             }
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                "Ketuk untuk melihat detail →",
+                color = colors.primary,
+                fontSize = 11.sp
+            )
         }
+    }
+}
+
+@Composable
+private fun ReportDetailScreen(
+    reportId: Int,
+    onBack: () -> Unit
+) {
+    val colors = MaterialTheme.colorScheme
+    var detail by remember(reportId) {
+        mutableStateOf<ReportDetail?>(null)
+    }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf("") }
+    var reloadKey by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(reportId, reloadKey) {
+        loading = true
+        error = ""
+
+        try {
+            val result = ApiClient.service.reportDetail(reportId)
+
+            if (result.success && result.data != null) {
+                detail = result.data
+            } else {
+                error = result.message ?: "Detail laporan tidak ditemukan."
+            }
+        } catch (e: Exception) {
+            error = when (e) {
+                is retrofit2.HttpException ->
+                    "Gagal mengambil detail. HTTP ${e.code()}."
+                else -> "Tidak dapat terhubung ke server."
+            }
+        } finally {
+            loading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Kembali"
+                )
+            }
+
+            Text(
+                "Detail laporan",
+                modifier = Modifier.weight(1f),
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.onBackground
+            )
+
+            IconButton(onClick = { reloadKey++ }) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Muat ulang"
+                )
+            }
+        }
+
+        if (loading) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        }
+
+        if (error.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(error, color = colors.error)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { reloadKey++ }) {
+                    Text("Coba lagi")
+                }
+            }
+        }
+
+        detail?.let { report ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Column(Modifier.padding(18.dp)) {
+                            Text(
+                                report.report_number ?: "Laporan #${report.id}",
+                                color = colors.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Text(
+                                report.title ?: "Tanpa judul",
+                                fontSize = 21.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            StatusBadge(report.status)
+
+                            Spacer(Modifier.height(14.dp))
+
+                            DetailRow("Kategori", report.category)
+                            DetailRow("Prioritas", report.priority)
+                            DetailRow("Tahap", "${report.stage}/5")
+                            DetailRow("Tanggal", report.created_at)
+                        }
+                    }
+                }
+
+                item {
+                    DetailCard(title = "Informasi pelapor") {
+                        DetailRow("Nama", report.reporter_name)
+                        DetailRow("Peran", report.reporter_role)
+                        DetailRow("Unit", report.reporter_unit)
+                        DetailRow("Ditugaskan kepada", report.assigned_to?.toString() ?: "Belum ditugaskan")
+                    }
+                }
+
+                item {
+                    DetailCard(title = "Deskripsi laporan") {
+                        Text(
+                            report.description?.takeIf { it.isNotBlank() }
+                                ?: "Tidak ada deskripsi.",
+                            color = colors.onSurface,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                item {
+                    DetailCard(title = "Riwayat aktivitas (${report.events.size})") {
+                        if (report.events.isEmpty()) {
+                            Text("Belum ada riwayat aktivitas.")
+                        } else {
+                            report.events.forEach { event ->
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        event.title ?: event.type ?: "Aktivitas",
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.primary
+                                    )
+                                    if (!event.note.isNullOrBlank()) {
+                                        Text(event.note, fontSize = 13.sp)
+                                    }
+                                    Text(
+                                        listOfNotNull(
+                                            event.actor,
+                                            event.created_at
+                                        ).joinToString(" • "),
+                                        fontSize = 11.sp,
+                                        color = colors.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                HorizontalDivider()
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    DetailCard(title = "Lampiran (${report.attachments.size})") {
+                        if (report.attachments.isEmpty()) {
+                            Text("Tidak ada lampiran.")
+                        } else {
+                            report.attachments.forEach { attachment ->
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        attachment.name ?: "File",
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "${attachment.mime_type ?: "File"} • ${formatBytes(attachment.size_bytes)}",
+                                        fontSize = 12.sp,
+                                        color = colors.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                HorizontalDivider()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(
+    label: String,
+    value: String?
+) {
+    if (!value.isNullOrBlank()) {
+        Column(Modifier.padding(vertical = 4.dp)) {
+            Text(
+                label,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Text(
+                value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(status: String?) {
+    val color = statusColor(status)
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = color.copy(alpha = 0.15f)
+    ) {
+        Text(
+            statusLabel(status),
+            color = color,
+            modifier = Modifier.padding(
+                horizontal = 10.dp,
+                vertical = 5.dp
+            ),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -395,5 +688,15 @@ private fun statusColor(status: String?): Color {
         "fail" -> Color(0xFFEF4444)
         "cancel" -> Color(0xFF94A3B8)
         else -> Color.Gray
+    }
+}
+
+private fun formatBytes(bytes: Long?): String {
+    if (bytes == null || bytes <= 0) return "Ukuran tidak diketahui"
+
+    return when {
+        bytes >= 1_048_576 -> "%.2f MB".format(bytes / 1_048_576.0)
+        bytes >= 1024 -> "%.1f KB".format(bytes / 1024.0)
+        else -> "$bytes B"
     }
 }
