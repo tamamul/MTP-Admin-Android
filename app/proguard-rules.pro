@@ -1,0 +1,15 @@
+-keepattributes Signature,*Annotation*
+
+-keep class com.marsa.mtpadmin.LoginRequest { *; }
+-keep class com.marsa.mtpadmin.LoginUser { *; }
+-keep class com.marsa.mtpadmin.LoginResponse { *; }
+-keep class com.marsa.mtpadmin.ApiResponse { *; }
+-keep class com.marsa.mtpadmin.ReportSummary { *; }
+-keep class com.marsa.mtpadmin.Pagination { *; }
+-keep class com.marsa.mtpadmin.ReportEvent { *; }
+-keep class com.marsa.mtpadmin.ReportAttachment { *; }
+-keep class com.marsa.mtpadmin.ReportDetail { *; }
+-keep class com.marsa.mtpadmin.Technician { *; }
+-keep class com.marsa.mtpadmin.AssignmentRequest { *; }
+-keep class com.marsa.mtpadmin.StatusRequest { *; }
+-keep class com.marsa.mtpadmin.AssignmentResult { *; }
