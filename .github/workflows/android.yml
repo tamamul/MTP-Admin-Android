@@ -1,9 +1,7 @@
 name: Build MTP Admin Android
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
+  
   workflow_dispatch:
 
 permissions:
