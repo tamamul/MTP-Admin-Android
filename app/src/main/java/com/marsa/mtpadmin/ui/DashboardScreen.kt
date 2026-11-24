@@ -391,18 +391,44 @@ private fun ReportCard(
     }
 }
 
+
 @Composable
 private fun ReportDetailScreen(
     reportId: Int,
     onBack: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+
     var detail by remember(reportId) {
         mutableStateOf<ReportDetail?>(null)
     }
+    var technicians by remember {
+        mutableStateOf<List<com.marsa.mtpadmin.Technician>>(emptyList())
+    }
+
     var loading by remember { mutableStateOf(true) }
+    var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
+    var actionMessage by remember { mutableStateOf("") }
+
     var reloadKey by remember { mutableIntStateOf(0) }
+    var selectedStatus by remember { mutableStateOf("queued") }
+    var selectedStage by remember { mutableIntStateOf(0) }
+    var selectedTechnician by remember { mutableStateOf<Int?>(null) }
+    var note by remember { mutableStateOf("") }
+
+    var statusExpanded by remember { mutableStateOf(false) }
+    var technicianExpanded by remember { mutableStateOf(false) }
+
+    val statusOptions = listOf(
+        "queued" to "Antrean",
+        "run" to "Dikerjakan",
+        "wait" to "Tertunda",
+        "ok" to "Selesai",
+        "fail" to "Gagal",
+        "cancel" to "Dibatalkan"
+    )
 
     LaunchedEffect(reportId, reloadKey) {
         loading = true
@@ -413,9 +439,22 @@ private fun ReportDetailScreen(
 
             if (result.success && result.data != null) {
                 detail = result.data
+                selectedStatus = result.data.status ?: "queued"
+                selectedStage = result.data.stage
+                selectedTechnician = result.data.assigned_to
             } else {
                 error = result.message ?: "Detail laporan tidak ditemukan."
             }
+
+            try {
+                val techResult = ApiClient.service.technicians()
+                if (techResult.success && techResult.data != null) {
+                    technicians = techResult.data
+                }
+            } catch (_: Exception) {
+                actionMessage = "Daftar teknisi gagal dimuat."
+            }
+
         } catch (e: Exception) {
             error = when (e) {
                 is retrofit2.HttpException ->
@@ -507,11 +546,9 @@ private fun ReportDetailScreen(
                             )
 
                             Spacer(Modifier.height(12.dp))
-
                             StatusBadge(report.status)
 
                             Spacer(Modifier.height(14.dp))
-
                             DetailRow("Kategori", report.category)
                             DetailRow("Prioritas", report.priority)
                             DetailRow("Tahap", "${report.stage}/5")
@@ -525,7 +562,10 @@ private fun ReportDetailScreen(
                         DetailRow("Nama", report.reporter_name)
                         DetailRow("Peran", report.reporter_role)
                         DetailRow("Unit", report.reporter_unit)
-                        DetailRow("Ditugaskan kepada", report.assigned_to?.toString() ?: "Belum ditugaskan")
+                        DetailRow(
+                            "ID teknisi",
+                            report.assigned_to?.toString() ?: "Belum ditugaskan"
+                        )
                     }
                 }
 
@@ -541,7 +581,242 @@ private fun ReportDetailScreen(
                 }
 
                 item {
-                    DetailCard(title = "Riwayat aktivitas (${report.events.size})") {
+                    DetailCard(title = "Kelola laporan") {
+                        Text(
+                            "Ubah status",
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Box {
+                            OutlinedButton(
+                                onClick = { statusExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    statusOptions.firstOrNull {
+                                        it.first == selectedStatus
+                                    }?.second ?: selectedStatus
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = statusExpanded,
+                                onDismissRequest = {
+                                    statusExpanded = false
+                                }
+                            ) {
+                                statusOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            selectedStatus = value
+                                            statusExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                            "Tahap pengerjaan: $selectedStage / 5",
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Slider(
+                            value = selectedStage.toFloat(),
+                            onValueChange = {
+                                selectedStage = it.toInt().coerceIn(0, 5)
+                            },
+                            valueRange = 0f..5f,
+                            steps = 4
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            "Catatan perubahan",
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = {
+                                Text("Tulis catatan (opsional)")
+                            },
+                            minLines = 2
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    saving = true
+                                    actionMessage = ""
+
+                                    try {
+                                        val result = ApiClient.service.updateStatus(
+                                            reportId,
+                                            com.marsa.mtpadmin.StatusRequest(
+                                                status = selectedStatus,
+                                                stage = selectedStage,
+                                                note = note.trim().ifBlank { null }
+                                            )
+                                        )
+
+                                        if (result.success) {
+                                            actionMessage = "Status berhasil diperbarui."
+                                            note = ""
+                                            reloadKey++
+                                        } else {
+                                            actionMessage = result.message
+                                                ?: "Gagal memperbarui status."
+                                        }
+                                    } catch (e: Exception) {
+                                        actionMessage = when (e) {
+                                            is retrofit2.HttpException ->
+                                                "Gagal menyimpan. HTTP ${e.code()}."
+                                            else -> "Koneksi gagal saat menyimpan."
+                                        }
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !saving
+                        ) {
+                            Text(
+                                if (saving) "Menyimpan..."
+                                else "Simpan status"
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+
+                        Text(
+                            "Penugasan teknisi",
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Box {
+                            OutlinedButton(
+                                onClick = { technicianExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    technicians.firstOrNull {
+                                        it.id == selectedTechnician
+                                    }?.name ?: if (selectedTechnician == null)
+                                        "Belum ditugaskan"
+                                    else
+                                        "Teknisi #$selectedTechnician"
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = technicianExpanded,
+                                onDismissRequest = {
+                                    technicianExpanded = false
+                                }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Belum ditugaskan") },
+                                    onClick = {
+                                        selectedTechnician = null
+                                        technicianExpanded = false
+                                    }
+                                )
+
+                                technicians.forEach { technician ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(technician.name)
+                                                Text(
+                                                    technician.unit ?: technician.role ?: "",
+                                                    fontSize = 11.sp,
+                                                    color = colors.onSurface.copy(
+                                                        alpha = 0.6f
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedTechnician = technician.id
+                                            technicianExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    saving = true
+                                    actionMessage = ""
+
+                                    try {
+                                        val result = ApiClient.service.assignTechnician(
+                                            reportId,
+                                            com.marsa.mtpadmin.AssignmentRequest(
+                                                technician_id = selectedTechnician
+                                            )
+                                        )
+
+                                        if (result.success) {
+                                            actionMessage = "Penugasan berhasil diperbarui."
+                                            reloadKey++
+                                        } else {
+                                            actionMessage = result.message
+                                                ?: "Gagal menyimpan penugasan."
+                                        }
+                                    } catch (e: Exception) {
+                                        actionMessage = when (e) {
+                                            is retrofit2.HttpException ->
+                                                "Gagal menyimpan. HTTP ${e.code()}."
+                                            else -> "Koneksi gagal saat menyimpan."
+                                        }
+                                    } finally {
+                                        saving = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !saving
+                        ) {
+                            Text(
+                                if (saving) "Menyimpan..."
+                                else "Simpan penugasan"
+                            )
+                        }
+
+                        if (actionMessage.isNotBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                actionMessage,
+                                color = if (actionMessage.contains("berhasil"))
+                                    Color(0xFF16A34A)
+                                else colors.error,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    DetailCard(
+                        title = "Riwayat aktivitas (${report.events.size})"
+                    ) {
                         if (report.events.isEmpty()) {
                             Text("Belum ada riwayat aktivitas.")
                         } else {
@@ -554,9 +829,11 @@ private fun ReportDetailScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = colors.primary
                                     )
+
                                     if (!event.note.isNullOrBlank()) {
                                         Text(event.note, fontSize = 13.sp)
                                     }
+
                                     Text(
                                         listOfNotNull(
                                             event.actor,
@@ -573,7 +850,9 @@ private fun ReportDetailScreen(
                 }
 
                 item {
-                    DetailCard(title = "Lampiran (${report.attachments.size})") {
+                    DetailCard(
+                        title = "Lampiran (${report.attachments.size})"
+                    ) {
                         if (report.attachments.isEmpty()) {
                             Text("Tidak ada lampiran.")
                         } else {
@@ -600,6 +879,7 @@ private fun ReportDetailScreen(
         }
     }
 }
+
 
 @Composable
 private fun DetailCard(
