@@ -11,9 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import com.marsa.mtpadmin.data.ApiClient
-import com.marsa.mtpadmin.data.LoginRequest
-import com.marsa.mtpadmin.data.SessionManager
+import com.marsa.mtpadmin.ApiClient
+import com.marsa.mtpadmin.LoginRequest
+import com.marsa.mtpadmin.SessionManager
 import com.marsa.mtpadmin.ui.dashboard.DashboardScreen
 import com.marsa.mtpadmin.ui.login.LoginScreen
 import com.marsa.mtpadmin.ui.theme.MtpAdminTheme

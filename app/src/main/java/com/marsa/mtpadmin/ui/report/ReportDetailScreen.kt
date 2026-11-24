@@ -46,11 +46,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.marsa.mtpadmin.data.ApiClient
-import com.marsa.mtpadmin.data.AssignmentRequest
-import com.marsa.mtpadmin.data.ReportDetail
-import com.marsa.mtpadmin.data.StatusRequest
-import com.marsa.mtpadmin.data.Technician
+import com.marsa.mtpadmin.ApiClient
+import com.marsa.mtpadmin.AssignmentRequest
+import com.marsa.mtpadmin.ReportDetail
+import com.marsa.mtpadmin.StatusRequest
+import com.marsa.mtpadmin.Technician
 import com.marsa.mtpadmin.ui.components.DetailCard
 import com.marsa.mtpadmin.ui.components.DetailRow
 import com.marsa.mtpadmin.ui.components.StatusBadge

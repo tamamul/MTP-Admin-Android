@@ -55,8 +55,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.marsa.mtpadmin.data.ApiClient
-import com.marsa.mtpadmin.data.ReportSummary
+import com.marsa.mtpadmin.ApiClient
+import com.marsa.mtpadmin.ReportSummary
 import com.marsa.mtpadmin.ui.components.StatusBadge
 import com.marsa.mtpadmin.ui.components.filterStatusOptions
 import com.marsa.mtpadmin.ui.report.ReportDetailScreen
