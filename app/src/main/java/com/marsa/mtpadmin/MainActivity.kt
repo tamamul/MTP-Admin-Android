@@ -16,7 +16,8 @@ import com.marsa.mtpadmin.ui.theme.MtpAdminTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+ApiClient.initialize(applicationContext)
+setContent {
             MtpAdminApp()
         }
     }
