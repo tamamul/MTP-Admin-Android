@@ -12,8 +12,8 @@ android {
         applicationId = "com.marsa.mtpadmin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     buildFeatures {
@@ -24,7 +24,6 @@ android {
         debug {
             isMinifyEnabled = false
         }
-
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -61,6 +60,7 @@ dependencies {
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

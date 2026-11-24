@@ -3,21 +3,31 @@ package com.marsa.mtpadmin
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.*
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.marsa.mtpadmin.data.ApiClient
+import com.marsa.mtpadmin.data.LoginRequest
+import com.marsa.mtpadmin.data.SessionManager
+import com.marsa.mtpadmin.ui.dashboard.DashboardScreen
+import com.marsa.mtpadmin.ui.login.LoginScreen
+import com.marsa.mtpadmin.ui.theme.MtpAdminTheme
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import retrofit2.HttpException
 import java.io.IOException
-import org.json.JSONObject
-import com.marsa.mtpadmin.ui.LoginScreen
-import com.marsa.mtpadmin.ui.DashboardScreen
-import com.marsa.mtpadmin.ui.theme.MtpAdminTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-ApiClient.initialize(applicationContext)
-setContent {
+        enableEdgeToEdge()
+        ApiClient.initialize(applicationContext)
+        setContent {
             MtpAdminApp()
         }
     }
@@ -46,9 +56,8 @@ fun MtpAdminApp() {
     var errorMessage by remember { mutableStateOf("") }
 
     var loggedIn by remember {
-        mutableStateOf(SessionManager.token(context) != null)
+        mutableStateOf(SessionManager.isLoggedIn(context))
     }
-
     var userName by remember {
         mutableStateOf(SessionManager.name(context) ?: "Administrator")
     }
@@ -60,14 +69,13 @@ fun MtpAdminApp() {
                 darkTheme = darkTheme,
                 onThemeChange = { enabled ->
                     darkTheme = enabled
-                    themePrefs.edit()
-                        .putBoolean(KEY_DARK_THEME, enabled)
-                        .apply()
+                    themePrefs.edit().putBoolean(KEY_DARK_THEME, enabled).apply()
                 },
                 onLogout = {
                     SessionManager.clear(context)
                     loggedIn = false
                     password = ""
+                    errorMessage = ""
                 }
             )
         } else {
@@ -83,59 +91,54 @@ fun MtpAdminApp() {
                     errorMessage = ""
                 },
                 showPassword = showPassword,
-                onTogglePassword = {
-                    showPassword = !showPassword
-                },
+                onTogglePassword = { showPassword = !showPassword },
                 loading = loading,
                 errorMessage = errorMessage,
                 onLogin = {
                     if (email.isBlank() || password.isBlank()) {
                         errorMessage = "Email dan password wajib diisi."
-                    } else {
-                        scope.launch {
-                            loading = true
-                            errorMessage = ""
-
-                            try {
-                                val result = ApiClient.service.login(
-                                    LoginRequest(
-                                        email = email.trim(),
-                                        password = password
-                                    )
+                        return@LoginScreen
+                    }
+                    scope.launch {
+                        loading = true
+                        errorMessage = ""
+                        try {
+                            val result = ApiClient.service.login(
+                                LoginRequest(
+                                    email = email.trim(),
+                                    password = password
                                 )
+                            )
+                            val user = result.user
+                            val token = result.access_token
 
-                                val user = result.user
-                                val token = result.access_token
-
-                                if (user == null || token.isNullOrBlank()) {
+                            when {
+                                user == null || token.isNullOrBlank() -> {
                                     errorMessage = "Respons login dari server tidak lengkap."
-                                } else if (user.account_role != "admin") {
+                                }
+                                user.account_role != "admin" -> {
                                     errorMessage = "Akun ini tidak memiliki akses administrator."
-                                } else {
-                                    SessionManager.save(
-                                        context,
-                                        token,
-                                        user.name
-                                    )
-
+                                }
+                                else -> {
+                                    SessionManager.save(context, token, user.name)
                                     userName = user.name
                                     loggedIn = true
                                 }
-                            } catch (e: HttpException) {
-                                val body = e.response()?.errorBody()?.string()
-                                errorMessage = try {
-                                    JSONObject(body ?: "{}")
-                                        .optString("message", "Login gagal.")
-                                } catch (_: Exception) {
-                                    "Login gagal. Periksa akun Anda."
-                                }
-                            } catch (_: IOException) {
-                                errorMessage = "Tidak dapat terhubung ke server. Periksa internet."
-                            } catch (_: Exception) {
-                                errorMessage = "Terjadi kesalahan. Silakan coba lagi."
-                            } finally {
-                                loading = false
                             }
+                        } catch (e: HttpException) {
+                            val body = e.response()?.errorBody()?.string()
+                            errorMessage = try {
+                                JSONObject(body ?: "{}")
+                                    .optString("message", "Login gagal.")
+                            } catch (_: Exception) {
+                                "Login gagal. Periksa akun Anda."
+                            }
+                        } catch (_: IOException) {
+                            errorMessage = "Tidak dapat terhubung ke server. Periksa internet."
+                        } catch (_: Exception) {
+                            errorMessage = "Terjadi kesalahan. Silakan coba lagi."
+                        } finally {
+                            loading = false
                         }
                     }
                 }
