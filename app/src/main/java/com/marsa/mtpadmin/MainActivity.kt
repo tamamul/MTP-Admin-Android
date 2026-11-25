@@ -1,6 +1,10 @@
 package com.marsa.mtpadmin
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import com.google.firebase.messaging.FirebaseMessaging
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +31,25 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ApiClient.initialize(applicationContext)
+
+        // Izin notifikasi Android 13+
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                1001
+            )
+        }
+
+        // Ambil dan simpan FCM Token
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                getSharedPreferences("mtp_admin_session", MODE_PRIVATE)
+                    .edit()
+                    .putString("fcm_token", token)
+                    .apply()
+            }
         setContent {
             MtpAdminApp()
         }

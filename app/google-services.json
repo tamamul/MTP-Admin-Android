@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "565902875649",
+    "project_id": "notifabsenmarsa",
+    "storage_bucket": "notifabsenmarsa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:565902875649:android:5308f5851a7baa38a47400",
+        "android_client_info": {
+          "package_name": "com.marsa.mtpadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVmhco2L9WaXQ0G1hic0zm4plVPEo9GZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:565902875649:android:1f18c7f7677dd2cca47400",
+        "android_client_info": {
+          "package_name": "id.marsa9.fmchat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVmhco2L9WaXQ0G1hic0zm4plVPEo9GZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
