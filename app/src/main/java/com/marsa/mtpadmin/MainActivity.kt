@@ -1,6 +1,7 @@
 package com.marsa.mtpadmin
 
 import android.os.Bundle
+import android.util.Log
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +85,32 @@ fun MtpAdminApp() {
     }
     var userName by remember {
         mutableStateOf(SessionManager.name(context) ?: "Administrator")
+    }
+
+
+    // Daftarkan token FCM ke backend setiap admin sudah login
+    LaunchedEffect(loggedIn) {
+        if (loggedIn) {
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { fcmToken ->
+                    scope.launch {
+                        try {
+                            ApiClient.service.registerDevice(
+                                DeviceRegisterRequest(
+                                    fcm_token = fcmToken,
+                                    device_name = Build.MODEL
+                                )
+                            )
+                            Log.i("MTP_FCM", "Token berhasil didaftarkan ke backend")
+                        } catch (e: Exception) {
+                            Log.e("MTP_FCM", "Gagal mendaftarkan token", e)
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("MTP_FCM", "Gagal mengambil token FCM", e)
+                }
+        }
     }
 
     MtpAdminTheme(darkTheme = darkTheme) {

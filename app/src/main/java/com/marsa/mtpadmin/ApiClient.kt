@@ -113,6 +113,11 @@ data class Technician(
     val unit: String?
 )
 
+data class DeviceRegisterRequest(
+    val fcm_token: String,
+    val device_name: String
+)
+
 data class AssignmentRequest(
     val technician_id: Int?
 )
@@ -171,6 +176,14 @@ interface MtpApiService {
 
     @GET("admin/technicians")
     suspend fun technicians(): ApiResponse<List<Technician>>
+
+    @POST("admin/devices/register")
+    suspend fun registerDevice(
+        @Body request: DeviceRegisterRequest
+    ): Map<String, Any?>
+
+    @POST("admin/devices/test")
+    suspend fun testNotification(): Map<String, Any?>
 }
 
 object ApiClient {
