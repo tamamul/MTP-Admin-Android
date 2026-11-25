@@ -114,7 +114,10 @@ data class Technician(
 )
 
 data class DeviceRegisterRequest(
+    @SerializedName("fcm_token")
     val fcm_token: String,
+
+    @SerializedName("device_name")
     val device_name: String
 )
 
