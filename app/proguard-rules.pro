@@ -13,3 +13,7 @@
 -keep class com.marsa.mtpadmin.AssignmentRequest { *; }
 -keep class com.marsa.mtpadmin.StatusRequest { *; }
 -keep class com.marsa.mtpadmin.AssignmentResult { *; }
+
+# Keep Gson serialization models and their field annotations
+-keep class com.marsa.mtpadmin.DeviceRegisterRequest { *; }
+-keepattributes Signature,*Annotation*
